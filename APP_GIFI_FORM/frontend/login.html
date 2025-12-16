@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - GIFI Stock</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-logo">
+                <img src="GIFI.png" alt="GIFI Logo">
+            </div>
+            
+            <div class="login-title">
+                <h1>Gestion de Stock</h1>
+                <p>Connectez-vous pour accéder à l'application</p>
+            </div>
+
+            <div id="alert-container"></div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Nom d'utilisateur</label>
+                    <input type="text" id="username" name="username" required placeholder="Entrez votre identifiant" autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" name="password" required placeholder="Entrez votre mot de passe" autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="submit-btn" id="login-btn">
+                    Se connecter
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Vérifier si déjà connecté
+        const token = localStorage.getItem('token');
+        if (token) {
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const alertContainer = document.getElementById('alert-container');
+            const loginBtn = document.getElementById('login-btn');
+            alertContainer.innerHTML = '';
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Connexion...';
+
+            const formData = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            };
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Stocker le token et les infos utilisateur
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Rediriger vers la page d'accueil
+                    window.location.href = 'index.html';
+                } else {
+                    alertContainer.innerHTML = `<div class="alert error">${data.error || 'Erreur de connexion'}</div>`;
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Se connecter';
+                }
+            } catch (error) {
+                alertContainer.innerHTML = `<div class="alert error">Erreur de connexion au serveur</div>`;
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Se connecter';
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

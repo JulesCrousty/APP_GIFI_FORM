@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion de Stock - GIFI</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <img src="GIFI.png" alt="GIFI Logo" class="logo">
+                <span class="header-title">Gestion de Stock</span>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <div class="user-icon" id="user-icon">U</div>
+                    <div>
+                        <div class="username" id="username-display">Utilisateur</div>
+                        <div class="role" id="role-display">Utilisateur</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Déconnexion</button>
+            </div>
+        </header>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>Tableau de bord</h1>
+            <p>Application de gestion des entrées et sorties de stock</p>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div class="dashboard-grid">
+                    <a href="entree-stock.html" class="dashboard-card">
+                        <div class="icon green">IN</div>
+                        <h3>Entrée de Stock</h3>
+                        <p>Enregistrer une nouvelle entrée de stock</p>
+                    </a>
+                    
+                    <a href="sortie-stock.html" class="dashboard-card">
+                        <div class="icon red">OUT</div>
+                        <h3>Sortie de Stock</h3>
+                        <p>Enregistrer une sortie de stock</p>
+                    </a>
+                    
+                    <a href="consultation.html" class="dashboard-card">
+                        <div class="icon blue">STK</div>
+                        <h3>Consulter les Stocks</h3>
+                        <p>Voir l'état actuel du stock</p>
+                    </a>
+                    
+                    <a href="admin.html" class="dashboard-card admin-only" id="admin-card">
+                        <div class="icon dark">ADM</div>
+                        <h3>Administration</h3>
+                        <p>Gérer les utilisateurs</p>
+                    </a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Vérifier l'authentification
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Afficher les infos utilisateur
+        if (user.username) {
+            document.getElementById('username-display').textContent = user.username;
+            document.getElementById('user-icon').textContent = user.username.charAt(0).toUpperCase();
+            document.getElementById('role-display').textContent = user.role === 'admin' ? 'Administrateur' : 'Utilisateur';
+        }
+
+        // Afficher le lien admin si l'utilisateur est admin
+        if (user.role === 'admin') {
+            document.getElementById('admin-card').style.display = 'flex';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        // Vérifier la validité du token
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    logout();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+            }
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>

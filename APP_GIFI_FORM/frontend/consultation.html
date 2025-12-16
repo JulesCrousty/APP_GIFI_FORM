@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultation - GIFI Stock</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <img src="GIFI.png" alt="GIFI Logo" class="logo">
+                <span class="header-title">Gestion de Stock</span>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <div class="user-icon" id="user-icon">U</div>
+                    <div>
+                        <div class="username" id="username-display">Utilisateur</div>
+                        <div class="role" id="role-display">Utilisateur</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Déconnexion</button>
+            </div>
+        </header>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>Consultation des Stocks</h1>
+            <p>Visualiser et modifier les entrées et sorties de stock</p>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div class="nav-buttons">
+                    <a href="index.html" class="nav-btn back">
+                        ← Retour à l'accueil
+                    </a>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="input">Entrées de Stock</button>
+                    <button class="tab-btn" data-tab="output">Sorties de Stock</button>
+                </div>
+
+                <div id="input-tab" class="tab-content active">
+                    <div id="input-alert"></div>
+                    <div class="table-container">
+                        <table id="input-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>S/N</th>
+                                    <th>Statut</th>
+                                    <th>Date Création</th>
+                                    <th>Date Modification</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="input-body">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="loading">
+                                            <div class="spinner"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="output-tab" class="tab-content">
+                    <div id="output-alert"></div>
+                    <div class="table-container">
+                        <table id="output-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>S/N</th>
+                                    <th>Statut</th>
+                                    <th>Date Création</th>
+                                    <th>Date Modification</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="output-body">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="loading">
+                                            <div class="spinner"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de modification -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Modifier l'entrée</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            
+            <div id="modal-alert"></div>
+
+            <form id="edit-form">
+                <input type="hidden" id="edit-id">
+                <input type="hidden" id="edit-type">
+                
+                <div class="form-group">
+                    <label for="edit-sn">S/N (Numéro de série)</label>
+                    <input type="text" id="edit-sn" class="readonly" readonly disabled>
+                    <small style="color: #666; font-size: 0.8rem;">Le numéro de série ne peut pas être modifié</small>
+                </div>
+
+                <div class="form-group autocomplete">
+                    <label for="edit-article-input">Article *</label>
+                    <input type="text" id="edit-article-input" autocomplete="off" placeholder="Rechercher un article">
+                    <div class="autocomplete-options" id="edit-article-options"></div>
+                    <input type="hidden" id="edit-article-hidden" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-etat">État *</label>
+                    <select id="edit-etat" required>
+                        <option value="">Sélectionner un état</option>
+                        <option value="PRET A L EMPLOI">PRET A L EMPLOI</option>
+                        <option value="FONCTIONNEL">FONCTIONNEL</option>
+                        <option value="NON FONCTIONNEL">NON FONCTIONNEL</option>
+                        <option value="A TESTER">A TESTER</option>
+                        <option value="EN COURS DE SAV">EN COURS DE SAV</option>
+                        <option value="DEEE">DEEE</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-nom-prenom">Nom Prénom</label>
+                    <input type="text" id="edit-nom-prenom" placeholder="Nom et prénom">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-ticket-bmc">Ticket BMC</label>
+                    <input type="text" id="edit-ticket-bmc" placeholder="Numéro de ticket BMC">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-notes">Notes</label>
+                    <textarea id="edit-notes" rows="3" placeholder="Notes complémentaires"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-cause-installation">Cause installation de matériel (sortie)</label>
+                    <select id="edit-cause-installation">
+                        <option value="">Sélectionner une cause</option>
+                        <option value="Entrée salarié">Entrée salarié</option>
+                        <option value="Remplacement matériel suite à une panne">Remplacement matériel suite à une panne</option>
+                        <option value="Nouveau matériel">Nouveau matériel</option>
+                        <option value="Remplacement matériel">Remplacement matériel</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-produits-installes">Produits installés (sortie)</label>
+                    <div class="multi-select" id="edit-produits-installes-select">
+                        <button type="button">Sélectionner des produits</button>
+                        <div class="options"></div>
+                    </div>
+                    <input type="hidden" id="edit-produits-installes">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-cause-recuperation">Cause récupération de matériel (entrée)</label>
+                    <select id="edit-cause-recuperation">
+                        <option value="">Sélectionner une cause</option>
+                        <option value="Sortie salarié">Sortie salarié</option>
+                        <option value="Remplacement matériel suite à une panne">Remplacement matériel suite à une panne</option>
+                        <option value="Commande">Commande</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-produits-recuperes">Produits récupérés (entrée)</label>
+                    <div class="multi-select" id="edit-produits-recuperes-select">
+                        <button type="button">Sélectionner des produits</button>
+                        <div class="options"></div>
+                    </div>
+                    <input type="hidden" id="edit-produits-recuperes">
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    Enregistrer les modifications
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Vérifier l'authentification
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Afficher les infos utilisateur
+    if (user.username) {
+        document.getElementById('username-display').textContent = user.username;
+        document.getElementById('user-icon').textContent = user.username.charAt(0).toUpperCase();
+        document.getElementById('role-display').textContent = user.role === 'admin' ? 'Administrateur' : 'Utilisateur';
+    }
+
+    let articlesCache = [];
+    let editArticleList = [];
+    const produitsOptions = [
+        "Ordinateur portable",
+        "Ordinateur fixe",
+        "Clavier",
+        "Souris",
+        "Ecran",
+        "Ecran X2",
+        "Station d'accueil",
+        "Casque sans fil"
+    ];
+
+    async function loadArticles() {
+        try {
+            const response = await fetch('/api/articles', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+            articlesCache = await response.json();
+            editArticleList = articlesCache;
+            renderEditArticleOptions(editArticleList);
+        } catch (e) {
+            console.error('Erreur chargement articles', e);
+        }
+    }
+
+    const editArticleInput = document.getElementById('edit-article-input');
+    const editArticleHidden = document.getElementById('edit-article-hidden');
+    const editArticleOptions = document.getElementById('edit-article-options');
+
+    function renderEditArticleOptions(list) {
+        editArticleOptions.innerHTML = '';
+        list.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-option';
+            div.textContent = item.name;
+            div.addEventListener('click', () => {
+                editArticleInput.value = item.name;
+                editArticleHidden.value = item.name;
+                editArticleOptions.classList.remove('visible');
+            });
+            editArticleOptions.appendChild(div);
+        });
+    }
+
+    editArticleInput.addEventListener('input', () => {
+        const q = (editArticleInput.value || '').toLowerCase();
+        const filtered = editArticleList.filter(a => a.name.toLowerCase().includes(q));
+        renderEditArticleOptions(filtered);
+        editArticleOptions.classList.toggle('visible', filtered.length > 0);
+        editArticleHidden.value = '';
+    });
+
+    editArticleInput.addEventListener('focus', () => {
+        const q = (editArticleInput.value || '').toLowerCase();
+        const filtered = editArticleList.filter(a => a.name.toLowerCase().includes(q));
+        renderEditArticleOptions(filtered);
+        editArticleOptions.classList.toggle('visible', filtered.length > 0);
+    });
+
+    document.addEventListener('click', (e) => {
+        const container = editArticleInput.parentElement;
+        if (!container.contains(e.target)) {
+            editArticleOptions.classList.remove('visible');
+        }
+    });
+
+    function setupMultiSelect(containerId, hiddenId, toggleText) {
+        const container = document.getElementById(containerId);
+        const hidden = document.getElementById(hiddenId);
+        const optionsContainer = container.querySelector('.options');
+        const toggleBtn = container.querySelector('button');
+        const selected = new Set();
+
+        optionsContainer.innerHTML = '';
+        produitsOptions.forEach(opt => {
+            const row = document.createElement('div');
+            row.className = 'option-item';
+            const label = document.createElement('span');
+            label.textContent = opt;
+            row.appendChild(label);
+            row.addEventListener('click', () => {
+                if (selected.has(opt)) {
+                    selected.delete(opt);
+                    row.classList.remove('selected');
+                } else {
+                    selected.add(opt);
+                    row.classList.add('selected');
+                }
+                updateHidden();
+            });
+            optionsContainer.appendChild(row);
+        });
+
+        function updateHidden() {
+            const values = Array.from(selected);
+            hidden.value = values.join(', ');
+            toggleBtn.textContent = values.length ? `${values.length} sélectionné(s)` : toggleText;
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            container.classList.toggle('open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) {
+                container.classList.remove('open');
+            }
+        });
+
+        return {
+            setValues(values) {
+                selected.clear();
+                values.forEach(v => {
+                    if (produitsOptions.includes(v)) selected.add(v);
+                });
+                Array.from(optionsContainer.querySelectorAll('.option-item')).forEach(row => {
+                    const val = row.querySelector('span').textContent;
+                    row.classList.toggle('selected', selected.has(val));
+                });
+                updateHidden();
+            },
+            getValue() {
+                return hidden.value;
+            },
+            updateHidden
+        };
+    }
+
+    const multiInstalles = setupMultiSelect('edit-produits-installes-select', 'edit-produits-installes', 'Sélectionner des produits');
+    const multiRecuperes = setupMultiSelect('edit-produits-recuperes-select', 'edit-produits-recuperes', 'Sélectionner des produits');
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        // Gestion des onglets
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                this.classList.add('active');
+                const tabId = this.dataset.tab + '-tab';
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+    // Charger les données au démarrage
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStockData('input');
+        loadStockData('output');
+        loadArticles();
+    });
+
+        // Fonction pour charger les données de stock
+        async function loadStockData(type) {
+            const tbody = document.getElementById(type + '-body');
+            const display = (value) => value ? escapeHtml(value) : '-';
+            
+            try {
+                const response = await fetch(`/api/stock?type_stock=${type}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <p>Aucune donnée disponible</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(stock => {
+                    const isIntegrated = stock.tag_integration !== 'x';
+                    const tagClass = isIntegrated ? 'integrated' : 'pending';
+                    const tagText = isIntegrated ? 'Intégré' : 'En attente';
+                    
+                    const deleteButton = isIntegrated 
+                        ? `<button class="action-btn disabled" disabled title="Cette donnée est déjà intégrée">Supprimer</button>`
+                        : `<button class="action-btn delete" onclick="deleteStock(${stock.id}, '${type}')">Supprimer</button>`;
+
+                    return `
+                        <tr>
+                            <td>${stock.id}</td>
+                            <td>${escapeHtml(stock.sn)}</td>
+                            <td><span class="tag ${tagClass}">${tagText}</span></td>
+                            <td>${formatDate(stock.created_at)}</td>
+                            <td>${formatDate(stock.updated_at)}</td>
+                            <td>
+                                <button class="action-btn edit" onclick="openEditModal(${stock.id})">Modifier</button>
+                                ${deleteButton}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8">
+                            <div class="alert error">Erreur lors du chargement des données</div>
+                        </td>
+                    </tr>
+                `;
+                console.error('Error:', error);
+            }
+        }
+
+        // Fonction pour ouvrir le modal de modification
+        async function openEditModal(id) {
+            try {
+                const response = await fetch(`/api/stock/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const stock = await response.json();
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (response.ok) {
+                    document.getElementById('edit-id').value = stock.id;
+                    document.getElementById('edit-type').value = stock.type_stock;
+                    document.getElementById('edit-sn').value = stock.sn;
+                    editArticleInput.value = stock.article;
+                    editArticleHidden.value = stock.article;
+                    document.getElementById('edit-etat').value = stock.etat;
+                    document.getElementById('edit-nom-prenom').value = stock.nom_prenom || '';
+                    document.getElementById('edit-ticket-bmc').value = stock.ticket_bmc || '';
+                    document.getElementById('edit-notes').value = stock.notes || '';
+                    document.getElementById('edit-cause-installation').value = stock.cause_installation_materiel || '';
+                    const instValues = (stock.produits_installes || '').split(',').map(v => v.trim()).filter(Boolean);
+                    multiInstalles.setValues(instValues);
+                    document.getElementById('edit-cause-recuperation').value = stock.cause_recuperation_materiel || '';
+                    const recValues = (stock.produits_recuperes || '').split(',').map(v => v.trim()).filter(Boolean);
+                    multiRecuperes.setValues(recValues);
+                    document.getElementById('modal-alert').innerHTML = '';
+                    document.getElementById('edit-modal').classList.add('active');
+                } else {
+                    alert('Erreur: ' + stock.error);
+                }
+            } catch (error) {
+                alert('Erreur de connexion au serveur');
+                console.error('Error:', error);
+            }
+        }
+
+        // Fonction pour fermer le modal
+        function closeModal() {
+            document.getElementById('edit-modal').classList.remove('active');
+        }
+
+        // Fermer le modal en cliquant en dehors
+        document.getElementById('edit-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Soumission du formulaire de modification
+        document.getElementById('edit-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('edit-id').value;
+            const modalAlert = document.getElementById('modal-alert');
+            modalAlert.innerHTML = '';
+
+            if (!editArticleHidden.value) {
+                modalAlert.innerHTML = '<div class="alert error">Veuillez choisir un article dans la liste.</div>';
+                return;
+            }
+            
+            const formData = {
+                article: editArticleHidden.value,
+                etat: document.getElementById('edit-etat').value,
+                nom_prenom: document.getElementById('edit-nom-prenom').value,
+                ticket_bmc: document.getElementById('edit-ticket-bmc').value,
+                notes: document.getElementById('edit-notes').value,
+                cause_installation_materiel: document.getElementById('edit-cause-installation').value,
+                produits_installes: multiInstalles.getValue(),
+                cause_recuperation_materiel: document.getElementById('edit-cause-recuperation').value,
+                produits_recuperes: multiRecuperes.getValue()
+            };
+
+            try {
+                const response = await fetch(`/api/stock/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    modalAlert.innerHTML = '<div class="alert success">Modification enregistrée !</div>';
+                    
+                    setTimeout(() => {
+                        closeModal();
+                        loadStockData('input');
+                        loadStockData('output');
+                    }, 1000);
+                } else {
+                    modalAlert.innerHTML = `<div class="alert error">Erreur: ${data.error}</div>`;
+                }
+            } catch (error) {
+                modalAlert.innerHTML = '<div class="alert error">Erreur de connexion au serveur</div>';
+                console.error('Error:', error);
+            }
+        });
+
+        // Fonction pour supprimer une entrée
+        async function deleteStock(id, type) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette entrée ?')) {
+                return;
+            }
+
+            const alertContainer = document.getElementById(type + '-alert');
+
+            try {
+                const response = await fetch(`/api/stock/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alertContainer.innerHTML = '<div class="alert success">Entrée supprimée avec succès !</div>';
+                    loadStockData(type);
+                    
+                    setTimeout(() => {
+                        alertContainer.innerHTML = '';
+                    }, 3000);
+                } else {
+                    alertContainer.innerHTML = `<div class="alert error">Erreur: ${data.error}</div>`;
+                }
+            } catch (error) {
+                alertContainer.innerHTML = '<div class="alert error">Erreur de connexion au serveur</div>';
+                console.error('Error:', error);
+            }
+        }
+
+        // Fonction utilitaire pour formater les dates
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            date.setHours(date.getHours() + 1); // corrige le décalage d'une heure
+            return date.toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Fonction utilitaire pour échapper le HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

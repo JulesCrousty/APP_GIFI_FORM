@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrée de Stock - GIFI</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <img src="GIFI.png" alt="GIFI Logo" class="logo">
+                <span class="header-title">Gestion de Stock</span>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <div class="user-icon" id="user-icon">U</div>
+                    <div>
+                        <div class="username" id="username-display">Utilisateur</div>
+                        <div class="role" id="role-display">Utilisateur</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Déconnexion</button>
+            </div>
+        </header>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>Entrée de Stock</h1>
+            <p>Enregistrer une nouvelle entrée de stock</p>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <div class="nav-buttons">
+                    <a href="index.html" class="nav-btn back">
+                        ← Retour à l'accueil
+                    </a>
+                </div>
+
+                <div class="card">
+                    <h2>Formulaire d'entrée de stock</h2>
+                    
+                    <div id="alert-container"></div>
+
+                    <form id="entree-form">
+                        <div class="form-group">
+                            <label for="sn">S/N (Numéro de série) *</label>
+                            <input type="text" id="sn" name="sn" required placeholder="Entrez le numéro de série">
+                        </div>
+
+                        <div class="form-group autocomplete">
+                            <label for="article-input">Article *</label>
+                            <input type="text" id="article-input" autocomplete="off" placeholder="Rechercher un article">
+                            <div class="autocomplete-options" id="article-options"></div>
+                            <input type="hidden" id="article" name="article" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="etat">État *</label>
+                            <select id="etat" name="etat" required>
+                                <option value="">Sélectionner un état</option>
+                                <option value="PRET A L EMPLOI">PRET A L EMPLOI</option>
+                                <option value="FONCTIONNEL">FONCTIONNEL</option>
+                                <option value="NON FONCTIONNEL">NON FONCTIONNEL</option>
+                                <option value="A TESTER">A TESTER</option>
+                                <option value="EN COURS DE SAV">EN COURS DE SAV</option>
+                                <option value="DEEE">DEEE</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nom-prenom">Nom Prénom</label>
+                            <input type="text" id="nom-prenom" name="nom_prenom" placeholder="Nom et prénom du déposant">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticket-bmc">Ticket BMC</label>
+                            <input type="text" id="ticket-bmc" name="ticket_bmc" placeholder="Numéro de ticket BMC">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="cause-recuperation">Cause récupération de matériel</label>
+                            <select id="cause-recuperation" name="cause_recuperation_materiel">
+                                <option value="">Sélectionner une cause</option>
+                                <option value="Sortie salarié">Sortie salarié</option>
+                                <option value="Remplacement matériel suite à une panne">Remplacement matériel suite à une panne</option>
+                                <option value="Commande">Commande</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="produits-recuperes">Produits récupérés</label>
+                            <div class="multi-select" id="produits-recuperes-select">
+                                <button type="button" id="produits-recuperes-toggle">Sélectionner des produits</button>
+                                <div class="options"></div>
+                            </div>
+                            <input type="hidden" id="produits-recuperes" name="produits_recuperes">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Notes</label>
+                            <textarea id="notes" name="notes" rows="3" placeholder="Ajouter des notes complémentaires"></textarea>
+                        </div>
+
+                        <button type="submit" class="submit-btn">
+                            Enregistrer l'entrée
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Vérifier l'authentification
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Afficher les infos utilisateur
+        if (user.username) {
+            document.getElementById('username-display').textContent = user.username;
+            document.getElementById('user-icon').textContent = user.username.charAt(0).toUpperCase();
+            document.getElementById('role-display').textContent = user.role === 'admin' ? 'Administrateur' : 'Utilisateur';
+        }
+
+        const articleInput = document.getElementById('article-input');
+        const articleHidden = document.getElementById('article');
+        const articleOptions = document.getElementById('article-options');
+        let articleList = [];
+        const produitsRecuperesSelect = document.getElementById('produits-recuperes-select');
+        const produitsRecuperesHidden = document.getElementById('produits-recuperes');
+        const produitsOptions = [
+            "Ordinateur portable",
+            "Ordinateur fixe",
+            "Clavier",
+            "Souris",
+            "Ecran",
+            "Ecran X2",
+            "Station d'accueil",
+            "Casque sans fil"
+        ];
+
+        // Charger la liste des articles
+        async function loadArticles() {
+            try {
+                const response = await fetch('/api/articles', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+                articleList = await response.json();
+                renderArticleOptions(articleList);
+            } catch (e) {
+                console.error('Erreur chargement articles', e);
+            }
+        }
+
+        function renderArticleOptions(list) {
+            articleOptions.innerHTML = '';
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-option';
+                div.textContent = item.name;
+                div.addEventListener('click', () => {
+                    articleInput.value = item.name;
+                    articleHidden.value = item.name;
+                    articleOptions.classList.remove('visible');
+                });
+                articleOptions.appendChild(div);
+            });
+        }
+
+        articleInput.addEventListener('input', () => {
+            const q = (articleInput.value || '').toLowerCase();
+            const filtered = articleList.filter(a => a.name.toLowerCase().includes(q));
+            renderArticleOptions(filtered);
+            articleOptions.classList.toggle('visible', filtered.length > 0);
+            articleHidden.value = ''; // reset until selection
+        });
+
+        articleInput.addEventListener('focus', () => {
+            const q = (articleInput.value || '').toLowerCase();
+            const filtered = articleList.filter(a => a.name.toLowerCase().includes(q));
+            renderArticleOptions(filtered);
+            articleOptions.classList.toggle('visible', filtered.length > 0);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('article-input').parentElement.contains(e.target)) {
+                articleOptions.classList.remove('visible');
+            }
+        });
+
+        loadArticles();
+
+        function setupMultiSelect(container, hiddenInput, toggleText = 'Sélectionner') {
+            const optionsContainer = container.querySelector('.options');
+            const toggleBtn = container.querySelector('button');
+            const selected = new Set();
+            optionsContainer.innerHTML = '';
+            produitsOptions.forEach(opt => {
+                const div = document.createElement('div');
+                div.className = 'option-item';
+                const label = document.createElement('span');
+                label.textContent = opt;
+                div.appendChild(label);
+                div.addEventListener('click', () => {
+                    if (selected.has(opt)) {
+                        selected.delete(opt);
+                        div.classList.remove('selected');
+                    } else {
+                        selected.add(opt);
+                        div.classList.add('selected');
+                    }
+                    updateHidden();
+                });
+                optionsContainer.appendChild(div);
+            });
+
+            function updateHidden() {
+                const values = Array.from(selected);
+                hiddenInput.value = values.join(', ');
+                toggleBtn.textContent = values.length ? `${values.length} sélectionné(s)` : toggleText;
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                container.classList.toggle('open');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target)) {
+                    container.classList.remove('open');
+                }
+            });
+
+            updateHidden();
+            return {
+                setValues(values) {
+                    selected.clear();
+                    values.forEach(v => {
+                        if (produitsOptions.includes(v)) selected.add(v);
+                    });
+                    Array.from(optionsContainer.querySelectorAll('.option-item')).forEach(div => {
+                        const val = div.querySelector('span').textContent;
+                        div.classList.toggle('selected', selected.has(val));
+                    });
+                    updateHidden();
+                },
+                getValue() {
+                    return hiddenInput.value;
+                }
+            };
+        }
+
+        setupMultiSelect(produitsRecuperesSelect, produitsRecuperesHidden, 'Sélectionner des produits');
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        document.getElementById('entree-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const alertContainer = document.getElementById('alert-container');
+            alertContainer.innerHTML = '';
+
+            if (!articleHidden.value) {
+                alertContainer.innerHTML = '<div class="alert error">Veuillez sélectionner un article dans la liste.</div>';
+                return;
+            }
+
+            const produitsRecuperes = Array.from(document.getElementById('produits-recuperes').selectedOptions)
+                .map(o => o.value)
+                .filter(Boolean)
+                .join(', ');
+
+            const formData = {
+                sn: document.getElementById('sn').value,
+                article: document.getElementById('article').value,
+                etat: document.getElementById('etat').value,
+                type_stock: 'input',
+                nom_prenom: document.getElementById('nom-prenom').value,
+                ticket_bmc: document.getElementById('ticket-bmc').value,
+                cause_recuperation_materiel: document.getElementById('cause-recuperation').value,
+                produits_recuperes: produitsRecuperes,
+                notes: document.getElementById('notes').value
+            };
+
+            try {
+                const response = await fetch('/api/stock', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (response.ok) {
+                    alertContainer.innerHTML = '<div class="alert success">Entrée de stock créée avec succès !</div>';
+                    document.getElementById('entree-form').reset();
+                } else {
+                    alertContainer.innerHTML = `<div class="alert error">${data.error}</div>`;
+                }
+            } catch (error) {
+                alertContainer.innerHTML = `<div class="alert error">Erreur de connexion au serveur</div>`;
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
