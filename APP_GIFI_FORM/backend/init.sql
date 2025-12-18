@@ -1,19 +1,27 @@
 -- Création de la table users
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+    role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table des articles
+CREATE TABLE IF NOT EXISTS articles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_articles_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Création de la table stock
 CREATE TABLE IF NOT EXISTS stock (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     sn VARCHAR(255) NOT NULL,
     article VARCHAR(255) NOT NULL,
     etat VARCHAR(100) NOT NULL,
-    type_stock VARCHAR(10) NOT NULL CHECK (type_stock IN ('input', 'output')),
+    type_stock ENUM('input', 'output') NOT NULL,
     tag_integration CHAR(1) DEFAULT 'x',
     notes TEXT,
     ticket_bmc VARCHAR(255),
@@ -23,30 +31,7 @@ CREATE TABLE IF NOT EXISTS stock (
     cause_recuperation_materiel TEXT,
     produits_recuperes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Ajouts idempotents si la table existe déjà
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS notes TEXT;
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS ticket_bmc VARCHAR(255);
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS nom_prenom VARCHAR(255);
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS cause_installation_materiel TEXT;
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS produits_installes TEXT;
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS cause_recuperation_materiel TEXT;
-ALTER TABLE stock ADD COLUMN IF NOT EXISTS produits_recuperes TEXT;
-
--- Index pour améliorer les performances des requêtes
-CREATE INDEX idx_stock_type ON stock(type_stock);
-CREATE INDEX idx_stock_tag ON stock(tag_integration);
-CREATE INDEX idx_users_username ON users(username);
-
--- Note: L'utilisateur admin sera créé automatiquement par l'application au premier démarrage
-
--- Table des articles
-CREATE TABLE IF NOT EXISTS articles (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_articles_name ON articles(name);
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_stock_type (type_stock),
+    INDEX idx_stock_tag (tag_integration)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

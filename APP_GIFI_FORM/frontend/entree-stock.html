@@ -281,10 +281,7 @@
                 return;
             }
 
-            const produitsRecuperes = Array.from(document.getElementById('produits-recuperes').selectedOptions)
-                .map(o => o.value)
-                .filter(Boolean)
-                .join(', ');
+            const produitsRecuperes = (produitsRecuperesHidden.value || '').trim();
 
             const formData = {
                 sn: document.getElementById('sn').value,
