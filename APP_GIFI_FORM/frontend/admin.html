@@ -46,6 +46,9 @@
                     <h2>Créer un nouvel utilisateur</h2>
                     
                     <div id="alert-container"></div>
+                    <div class="loading" id="create-user-loading" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
 
                     <form id="create-user-form">
                         <div class="form-group">
@@ -109,6 +112,9 @@
                 <button class="close-btn" onclick="closeDeleteModal()">&times;</button>
             </div>
             <p>Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.</p>
+            <div class="loading" id="delete-user-loading" style="display: none;">
+                <div class="spinner"></div>
+            </div>
             <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="nav-btn back" onclick="closeDeleteModal()">Annuler</button>
                 <button class="nav-btn secondary" id="confirm-delete-btn">Supprimer</button>
@@ -216,6 +222,8 @@
             e.preventDefault();
             
             const alertContainer = document.getElementById('alert-container');
+            const submitBtn = document.querySelector('#create-user-form .submit-btn');
+            const createLoading = document.getElementById('create-user-loading');
             alertContainer.innerHTML = '';
 
             const formData = {
@@ -225,6 +233,8 @@
             };
 
             try {
+                createLoading.style.display = 'flex';
+                submitBtn.disabled = true;
                 const response = await fetch('/api/users', {
                     method: 'POST',
                     headers: {
@@ -246,6 +256,9 @@
             } catch (error) {
                 alertContainer.innerHTML = `<div class="alert error">Erreur de connexion au serveur</div>`;
                 console.error('Error:', error);
+            } finally {
+                createLoading.style.display = 'none';
+                submitBtn.disabled = false;
             }
         });
 
@@ -262,7 +275,11 @@
         }
 
         async function deleteUser(userId) {
+            const deleteLoading = document.getElementById('delete-user-loading');
+            const confirmBtn = document.getElementById('confirm-delete-btn');
             try {
+                deleteLoading.style.display = 'flex';
+                confirmBtn.disabled = true;
                 const response = await fetch(`/api/users/${userId}`, {
                     method: 'DELETE',
                     headers: {
@@ -280,6 +297,9 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert('Erreur de connexion au serveur');
+            } finally {
+                deleteLoading.style.display = 'none';
+                confirmBtn.disabled = false;
             }
         }
 

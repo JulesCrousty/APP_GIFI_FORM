@@ -45,10 +45,23 @@
                     <h2>Formulaire de sortie de stock</h2>
                     
                     <div id="alert-container"></div>
+                    <div class="loading" id="sortie-loading" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
 
                     <form id="sortie-form">
                         <div class="form-group">
-                            <label for="sn">S/N (Numéro de série) *</label>
+                            <div class="label-row">
+                                <label for="sn">S/N (Numéro de série) *</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="sn-managed-count">
+                                    <span class="toggle-ui" aria-hidden="true"></span>
+                                    <span class="toggle-copy">
+                                        <span class="toggle-text">Produit géré au nombre</span>
+                                        <span class="toggle-status" id="sn-managed-status">S/N requis</span>
+                                    </span>
+                                </label>
+                            </div>
                             <input type="text" id="sn" name="sn" required placeholder="Entrez le numéro de série">
                         </div>
 
@@ -135,6 +148,11 @@
         const articleInput = document.getElementById('article-input');
         const articleHidden = document.getElementById('article');
         const articleOptions = document.getElementById('article-options');
+        const snInput = document.getElementById('sn');
+        const snManagedCount = document.getElementById('sn-managed-count');
+        const snManagedStatus = document.getElementById('sn-managed-status');
+        const snPlaceholder = snInput.placeholder;
+        const sortieLoading = document.getElementById('sortie-loading');
         let articleList = [];
         const produitsInstallesSelect = document.getElementById('produits-installes-select');
         const produitsInstallesHidden = document.getElementById('produits-installes');
@@ -146,7 +164,8 @@
             "Ecran",
             "Ecran X2",
             "Station d'accueil",
-            "Casque sans fil"
+            "Casque sans fil",
+            "Autre (merci de préciser en notes)"
         ];
 
         // Charger la liste des articles
@@ -201,6 +220,18 @@
                 articleOptions.classList.remove('visible');
             }
         });
+
+        snManagedCount.addEventListener('change', () => {
+            const isManaged = snManagedCount.checked;
+            snInput.disabled = isManaged;
+            snInput.required = !isManaged;
+            snInput.classList.toggle('readonly', isManaged);
+            snInput.placeholder = isManaged ? 'S/N non requis' : snPlaceholder;
+            if (snManagedStatus) {
+                snManagedStatus.textContent = isManaged ? 'S/N désactivé' : 'S/N requis';
+            }
+        });
+
         loadArticles();
 
         function setupMultiSelect(container, hiddenInput, toggleText = 'Sélectionner') {
@@ -274,6 +305,7 @@
             e.preventDefault();
             
             const alertContainer = document.getElementById('alert-container');
+            const submitBtn = document.querySelector('#sortie-form .submit-btn');
             alertContainer.innerHTML = '';
 
             if (!articleHidden.value) {
@@ -281,8 +313,12 @@
                 return;
             }
 
+            const snValue = snManagedCount.checked ? ' ' : snInput.value;
+            sortieLoading.style.display = 'flex';
+            submitBtn.disabled = true;
+
             const formData = {
-                sn: document.getElementById('sn').value,
+                sn: snValue,
                 article: document.getElementById('article').value,
                 etat: document.getElementById('etat').value,
                 type_stock: 'output',
@@ -313,12 +349,22 @@
                 if (response.ok) {
                     alertContainer.innerHTML = '<div class="alert success">Sortie de stock créée avec succès !</div>';
                     document.getElementById('sortie-form').reset();
+                    snInput.disabled = false;
+                    snInput.required = true;
+                    snInput.classList.remove('readonly');
+                    snInput.placeholder = snPlaceholder;
+                    if (snManagedStatus) {
+                        snManagedStatus.textContent = 'S/N requis';
+                    }
                 } else {
                     alertContainer.innerHTML = `<div class="alert error">${data.error}</div>`;
                 }
             } catch (error) {
                 alertContainer.innerHTML = `<div class="alert error">Erreur de connexion au serveur</div>`;
                 console.error('Error:', error);
+            } finally {
+                sortieLoading.style.display = 'none';
+                submitBtn.disabled = false;
             }
         });
     </script>

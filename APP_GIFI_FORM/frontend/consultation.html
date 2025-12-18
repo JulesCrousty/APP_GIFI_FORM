@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consultation - GIFI Stock</title>
+    <title>Consultation des saisies - GIFI Stock</title>
     <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
@@ -28,7 +28,7 @@
 
         <!-- Page Header -->
         <div class="page-header">
-            <h1>Consultation des Stocks</h1>
+            <h1>Consultation des saisies</h1>
             <p>Visualiser et modifier les entrées et sorties de stock</p>
         </div>
 
@@ -214,7 +214,7 @@
         }
 
         // Afficher les infos utilisateur
-    if (user.username) {
+        if (user.username) {
         document.getElementById('username-display').textContent = user.username;
         document.getElementById('user-icon').textContent = user.username.charAt(0).toUpperCase();
         document.getElementById('role-display').textContent = user.role === 'admin' ? 'Administrateur' : 'Utilisateur';
@@ -230,7 +230,8 @@
         "Ecran",
         "Ecran X2",
         "Station d'accueil",
-        "Casque sans fil"
+        "Casque sans fil",
+        "Autre (merci de préciser en notes)"
     ];
 
     async function loadArticles() {
@@ -509,6 +510,7 @@
             
             const id = document.getElementById('edit-id').value;
             const modalAlert = document.getElementById('modal-alert');
+            const submitBtn = document.querySelector('#edit-form .submit-btn');
             modalAlert.innerHTML = '';
 
             if (!editArticleHidden.value) {
@@ -529,6 +531,8 @@
             };
 
             try {
+                modalAlert.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+                submitBtn.disabled = true;
                 const response = await fetch(`/api/stock/${id}`, {
                     method: 'PUT',
                     headers: {
@@ -559,6 +563,8 @@
             } catch (error) {
                 modalAlert.innerHTML = '<div class="alert error">Erreur de connexion au serveur</div>';
                 console.error('Error:', error);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
 
@@ -571,6 +577,7 @@
             const alertContainer = document.getElementById(type + '-alert');
 
             try {
+                alertContainer.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
                 const response = await fetch(`/api/stock/${id}`, {
                     method: 'DELETE',
                     headers: {

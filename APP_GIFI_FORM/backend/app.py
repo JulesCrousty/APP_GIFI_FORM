@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import psycopg2
-import psycopg2.extras
+import mysql.connector
 import os
+from urllib.parse import urlparse
+import time
 from datetime import datetime, timedelta
 from functools import wraps
 import jwt
@@ -15,9 +16,39 @@ CORS(app, supports_credentials=True)
 SECRET_KEY = os.environ.get('SECRET_KEY', 'gifi-stock-secret-key-2024')
 
 def get_db_connection():
-    """Établit une connexion à la base de données PostgreSQL"""
-    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
-    return conn
+    """Établit une connexion à la base de données MySQL"""
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        raise ValueError("DATABASE_URL n'est pas défini")
+    
+    parsed = urlparse(db_url)
+    database = (parsed.path or '').lstrip('/')
+    if not database:
+        raise ValueError("DATABASE_URL doit contenir le nom de la base")
+    
+    return mysql.connector.connect(
+        host=parsed.hostname or 'localhost',
+        port=parsed.port or 3306,
+        user=parsed.username,
+        password=parsed.password,
+        database=database,
+        charset='utf8mb4',
+        autocommit=False,
+        use_pure=True
+    )
+
+def wait_for_integration_clear(conn, poll_interval=1):
+    """Attend qu'aucune ligne n'ait tag_integration = 'w' avant d'écrire."""
+    while True:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM stock WHERE tag_integration = 'w' LIMIT 1")
+        has_lock = cur.fetchone() is not None
+        cur.close()
+
+        if not has_lock:
+            return
+
+        time.sleep(poll_interval)
 
 def token_required(f):
     """Décorateur pour protéger les routes avec JWT"""
@@ -36,7 +67,7 @@ def token_required(f):
         try:
             data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             conn = get_db_connection()
-            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur = conn.cursor(dictionary=True)
             cur.execute('SELECT id, username, role FROM users WHERE id = %s', (data['user_id'],))
             current_user = cur.fetchone()
             cur.close()
@@ -74,7 +105,7 @@ def login():
         return jsonify({'error': 'Username et password requis'}), 400
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     cur.execute('SELECT * FROM users WHERE username = %s', (data['username'],))
     user = cur.fetchone()
@@ -120,7 +151,7 @@ def get_current_user(current_user):
 def get_users(current_user):
     """Récupère la liste des utilisateurs (admin uniquement)"""
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     cur.execute('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC')
     users = cur.fetchall()
@@ -151,7 +182,7 @@ def create_user(current_user):
         return jsonify({'error': 'Le rôle doit être "admin" ou "user"'}), 400
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     # Vérifier si l'utilisateur existe déjà
     cur.execute('SELECT id FROM users WHERE username = %s', (data['username'],))
@@ -161,16 +192,20 @@ def create_user(current_user):
         return jsonify({'error': 'Cet utilisateur existe déjà'}), 409
     
     password_hash = generate_password_hash(data['password'])
+
+    wait_for_integration_clear(conn)
     
     cur.execute(
         '''INSERT INTO users (username, password_hash, role, created_at)
-           VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
-           RETURNING id, username, role, created_at''',
+           VALUES (%s, %s, %s, CURRENT_TIMESTAMP)''',
         (data['username'], password_hash, role)
     )
-    
-    new_user = cur.fetchone()
+
+    new_user_id = cur.lastrowid
     conn.commit()
+
+    cur.execute('SELECT id, username, role, created_at FROM users WHERE id = %s', (new_user_id,))
+    new_user = cur.fetchone()
     cur.close()
     conn.close()
     
@@ -188,7 +223,7 @@ def delete_user(current_user, id):
         return jsonify({'error': 'Vous ne pouvez pas supprimer votre propre compte'}), 400
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     cur.execute('SELECT id FROM users WHERE id = %s', (id,))
     if not cur.fetchone():
@@ -196,6 +231,7 @@ def delete_user(current_user, id):
         conn.close()
         return jsonify({'error': 'Utilisateur non trouvé'}), 404
     
+    wait_for_integration_clear(conn)
     cur.execute('DELETE FROM users WHERE id = %s', (id,))
     conn.commit()
     cur.close()
@@ -210,7 +246,7 @@ def delete_user(current_user, id):
 def list_articles(current_user):
     """Retourne la liste des articles disponibles"""
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     cur.execute('SELECT id, name FROM articles ORDER BY name ASC')
     rows = cur.fetchall()
     cur.close()
@@ -231,7 +267,7 @@ def get_all_stock(current_user):
     type_stock = request.args.get('type_stock')
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     if type_stock:
         cur.execute(
@@ -259,7 +295,7 @@ def get_all_stock(current_user):
 def get_stock(current_user, id):
     """Récupère une entrée de stock par son ID"""
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     cur.execute('SELECT * FROM stock WHERE id = %s', (id,))
     stock = cur.fetchone()
@@ -299,7 +335,7 @@ def create_stock(current_user):
     produits_recuperes = data.get('produits_recuperes')
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
 
     # Vérifier que l'article existe dans la table articles
     cur.execute('SELECT id FROM articles WHERE name = %s', (data['article'],))
@@ -309,6 +345,7 @@ def create_stock(current_user):
         conn.close()
         return jsonify({'error': "L'article n'existe pas. Ajoutez-le d'abord dans la table articles."}), 400
     
+    wait_for_integration_clear(conn)
     cur.execute(
         '''INSERT INTO stock (
                sn, article, etat, type_stock, tag_integration,
@@ -321,8 +358,7 @@ def create_stock(current_user):
                    %s, %s, %s,
                    %s, %s,
                    %s, %s,
-                   CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-           RETURNING *''',
+                   CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)''',
         (
             data['sn'], data['article'], data['etat'], data['type_stock'],
             notes, ticket_bmc, nom_prenom,
@@ -330,9 +366,12 @@ def create_stock(current_user):
             cause_recuperation, produits_recuperes
         )
     )
-    
-    new_stock = cur.fetchone()
+
+    new_stock_id = cur.lastrowid
     conn.commit()
+
+    cur.execute('SELECT * FROM stock WHERE id = %s', (new_stock_id,))
+    new_stock = cur.fetchone()
     cur.close()
     conn.close()
     
@@ -349,7 +388,7 @@ def update_stock(current_user, id):
     data = request.get_json()
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     cur.execute('SELECT * FROM stock WHERE id = %s', (id,))
     existing = cur.fetchone()
@@ -387,6 +426,7 @@ def update_stock(current_user, id):
         cause_recuperation = data.get('cause_recuperation_materiel', existing.get('cause_recuperation_materiel'))
         produits_recuperes = data.get('produits_recuperes', existing.get('produits_recuperes'))
     
+    wait_for_integration_clear(conn)
     cur.execute(
         '''UPDATE stock 
            SET article = %s,
@@ -400,8 +440,7 @@ def update_stock(current_user, id):
                produits_recuperes = %s,
                tag_integration = 'x',
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = %s
-           RETURNING *''',
+           WHERE id = %s''',
         (
             article,
             etat,
@@ -416,8 +455,10 @@ def update_stock(current_user, id):
         )
     )
     
-    updated_stock = cur.fetchone()
     conn.commit()
+
+    cur.execute('SELECT * FROM stock WHERE id = %s', (id,))
+    updated_stock = cur.fetchone()
     cur.close()
     conn.close()
     
@@ -432,7 +473,7 @@ def update_stock(current_user, id):
 def delete_stock(current_user, id):
     """Supprime une entrée de stock (seulement si tag_integration = 'x')"""
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor(dictionary=True)
     
     cur.execute('SELECT * FROM stock WHERE id = %s', (id,))
     existing = cur.fetchone()
@@ -447,6 +488,7 @@ def delete_stock(current_user, id):
         conn.close()
         return jsonify({'error': 'Cette donnée est déjà intégrée et ne peut pas être supprimée'}), 403
     
+    wait_for_integration_clear(conn)
     cur.execute('DELETE FROM stock WHERE id = %s', (id,))
     conn.commit()
     cur.close()
@@ -458,13 +500,14 @@ def init_admin_user():
     """Crée l'utilisateur admin par défaut s'il n'existe pas"""
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur = conn.cursor(dictionary=True)
         
         # Vérifier si l'admin existe
         cur.execute('SELECT id FROM users WHERE username = %s', ('admin',))
         if not cur.fetchone():
             # Créer l'admin avec le mot de passe 'admin123'
             password_hash = generate_password_hash('admin123')
+            wait_for_integration_clear(conn)
             cur.execute(
                 '''INSERT INTO users (username, password_hash, role, created_at)
                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)''',
